@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PTP-FAKD · Progressive Token Pruning for Vision Transformers</title>
+<meta name="description" content="Research showcase for Progressive Token Pruning with Feature-Aware Distillation, IECCT 2026.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg-page: #fafaf7;
+    --bg-card: #ffffff;
+    --bg-secondary: #f3f1ec;
+    --bg-tertiary: #ecebe5;
+    --bg-info: #e6f1fb;
+    --bg-success: #eaf3de;
+    --text-primary: #1a1a18;
+    --text-secondary: #5f5e5a;
+    --text-tertiary: #888780;
+    --text-info: #185fa5;
+    --text-success: #3b6d11;
+    --border-light: rgba(26, 26, 24, 0.08);
+    --border-medium: rgba(26, 26, 24, 0.16);
+    --border-info: #378add;
+    --accent-purple: #7f77dd;
+    --accent-coral: #d85a30;
+    --accent-blue: #185fa5;
+    --accent-gray: #888780;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-page: #1a1a18;
+      --bg-card: #232320;
+      --bg-secondary: #2c2c29;
+      --bg-tertiary: #353532;
+      --bg-info: #0c447c33;
+      --bg-success: #27500a33;
+      --text-primary: #f0efe9;
+      --text-secondary: #b4b2a9;
+      --text-tertiary: #888780;
+      --text-info: #85b7eb;
+      --text-success: #97c459;
+      --border-light: rgba(240, 239, 233, 0.08);
+      --border-medium: rgba(240, 239, 233, 0.16);
+      --border-info: #185fa5;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 24px 80px; }
+  .header { margin-bottom: 28px; }
+  .header-badge {
+    display: inline-block;
+    background: var(--bg-info);
+    color: var(--text-info);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: var(--radius-md);
+    margin-bottom: 10px;
+    letter-spacing: 0.4px;
+    font-weight: 500;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 500;
+    margin: 0 0 8px;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+  .header .authors {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 0 0 4px;
+  }
+  .header .affiliation {
+    font-size: 13px;
+    color: var(--text-tertiary);
+    margin: 0;
+  }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 32px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab-btn {
+    background: transparent;
+    border: none;
+    padding: 12px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--text-secondary);
+    font-family: inherit;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+  }
+  .tab-btn:hover { color: var(--text-primary); }
+  .tab-btn.active {
+    color: var(--text-primary);
+    border-bottom-color: var(--text-primary);
+  }
+  .tab-pane { animation: fadeIn 0.2s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .metric-card {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    padding: 16px;
+  }
+  .metric-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; }
+  .metric-value { font-size: 26px; font-weight: 500; line-height: 1.1; }
+  .metric-value.success { color: var(--text-success); }
+  .metric-sub { font-size: 11px; color: var(--text-tertiary); margin-top: 4px; }
+  h2 {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 28px 0 12px;
+    letter-spacing: -0.005em;
+  }
+  h3 { font-size: 15px; font-weight: 500; margin: 20px 0 8px; }
+  p { font-size: 14px; line-height: 1.7; color: var(--text-secondary); margin: 0 0 14px; }
+  .approach-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 600px) {
+    .approach-grid, .grid-2 { grid-template-columns: 1fr; }
+  }
+  .approach-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+  }
+  .approach-card-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+  .approach-card-icon { color: var(--text-info); font-size: 18px; }
+  .approach-card p { font-size: 13px; margin: 0; line-height: 1.6; }
+  .callout {
+    background: var(--bg-info);
+    border-left: 3px solid var(--border-info);
+    padding: 14px 18px;
+    margin: 16px 0;
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+  .callout p { color: var(--text-info); margin: 0; font-size: 13px; line-height: 1.7; }
+  .callout em { font-style: italic; font-weight: 500; }
+  .arch-canvas {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    margin: 16px 0 24px;
+  }
+  .arch-canvas svg { width: 100%; height: auto; }
+  .formula-box {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    margin: 8px 0;
+  }
+  .ablation-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .ablation-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    padding: 14px;
+  }
+  .ablation-card.featured { border: 2px solid var(--border-info); }
+  .ablation-label { font-size: 11px; color: var(--text-tertiary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px; }
+  .ablation-card.featured .ablation-label { color: var(--text-info); }
+  .ablation-value { font-size: 22px; font-weight: 500; line-height: 1.1; }
+  .ablation-value.success { color: var(--text-success); }
+  .ablation-delta { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+  .ablation-delta.success { color: var(--text-success); }
+  .chart-wrapper { position: relative; width: 100%; height: 280px; margin: 12px 0 24px; }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  @media (max-width: 480px) { .grid-3 { grid-template-columns: 1fr; } }
+  .sample-row { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+  .sample-btn {
+    padding: 10px 14px;
+    font-size: 13px;
+    border: 1px solid var(--border-light);
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--text-primary);
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .sample-btn:hover { border-color: var(--border-medium); }
+  .sample-btn.selected {
+    border-color: var(--border-info);
+    background: var(--bg-info);
+    color: var(--text-info);
+  }
+  .stage-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+    padding: 14px 16px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+  }
+  .stage-row label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    min-width: 110px;
+  }
+  .stage-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: var(--border-light);
+    border-radius: 2px;
+    outline: none;
+  }
+  .stage-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    background: var(--accent-blue);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid var(--bg-page);
+  }
+  .stage-row input[type=range]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: var(--accent-blue);
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid var(--bg-page);
+  }
+  .stage-readout {
+    font-size: 13px;
+    font-weight: 500;
+    min-width: 110px;
+    text-align: right;
+  }
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .grid-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .grid-svg-wrapper {
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    overflow: hidden;
+  }
+  .grid-svg-wrapper svg { display: block; width: 100%; height: auto; }
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .stat-card {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+  }
+  .stat-card-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+  .stat-card-value { font-size: 18px; font-weight: 500; line-height: 1.1; }
+  .pred-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+  }
+  .pred-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .pred-title { font-size: 14px; font-weight: 500; }
+  .pred-stage-text { font-size: 11px; color: var(--text-tertiary); }
+  .pred-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .pred-label { font-size: 11px; margin-bottom: 6px; }
+  .pred-class { font-size: 16px; font-weight: 500; margin-bottom: 6px; }
+  .conf-row { display: flex; align-items: center; gap: 8px; }
+  .conf-bar-bg {
+    flex: 1;
+    height: 5px;
+    background: var(--bg-secondary);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .conf-bar-fill { height: 100%; transition: width 0.3s ease-out; }
+  .conf-pct { font-size: 11px; min-width: 32px; text-align: right; }
+  .footer {
+    margin-top: 60px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border-light);
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-tertiary);
+  }
+  .footer a { color: var(--text-secondary); text-decoration: none; }
+  .footer a:hover { color: var(--text-primary); }
+  .demo-disclaimer {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    padding: 10px 14px;
+    margin-bottom: 16px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .demo-disclaimer-icon { font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header class="header">
+    <span class="header-badge">IECCT 2026 · Paper ID 1523</span>
+    <h1>Progressive Token Pruning with Feature-Aware Distillation for ViTs</h1>
+    <p class="authors">Omswaroop T M · Sushmith S Mokashi · Bathala Harsha · Shashikala H K · Pranshu Jain</p>
+    <p class="affiliation">School of Computer Science and Engineering, Jain (Deemed-to-be University), Bengaluru</p>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab-btn active" data-tab="overview" role="tab">Overview</button>
+    <button class="tab-btn" data-tab="architecture" role="tab">Architecture</button>
+    <button class="tab-btn" data-tab="results" role="tab">Results</button>
+    <button class="tab-btn" data-tab="demo" role="tab">Live demo</button>
+  </nav>
+
+  <section id="tab-overview" class="tab-pane">
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-label">Top-1 accuracy</div>
+        <div class="metric-value">89.60%</div>
+        <div class="metric-sub">CIFAR-100, ViT-B/16</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Above teacher</div>
+        <div class="metric-value success">+2.57</div>
+        <div class="metric-sub">percentage points</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Attention FLOPs</div>
+        <div class="metric-value">0.265×</div>
+        <div class="metric-sub">73.5% reduction</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Parameters added</div>
+        <div class="metric-value">0</div>
+        <div class="metric-sub">over base ViT-B/16</div>
+      </div>
+    </div>
+
+    <h2>The problem</h2>
+    <p>Vision Transformers process images as sequences of patch tokens. Self-attention scales quadratically with sequence length — for ViT-B/16 on a 224×224 image, that's 38,416 pairwise scores per attention head per layer. Token pruning reduces this cost, but pruning at the input layer discards tokens before they carry semantic meaning. The wrong tokens get cut and accuracy drops.</p>
+
+    <h2>Our approach</h2>
+    <div class="approach-grid">
+      <div class="approach-card">
+        <div class="approach-card-title">
+          <span class="approach-card-icon">✂</span>
+          <span>PTP — Progressive Token Pruning</span>
+        </div>
+        <p>Prune progressively at stages 1/4 and 2/3 of the encoder, scoring tokens by L₂-norm of their post-stage hidden representations. No additional learned parameters.</p>
+      </div>
+      <div class="approach-card">
+        <div class="approach-card-title">
+          <span class="approach-card-icon">⚖</span>
+          <span>FAKD — Feature-Aware KD</span>
+        </div>
+        <p>Align CLS representations between sparse student and frozen dense teacher exactly at pruning boundaries, where divergence is structurally greatest.</p>
+      </div>
+    </div>
+
+    <h2>Key finding</h2>
+    <div class="callout">
+      <p>A controlled 2×2 ablation isolates pruning <em>timing</em> as the dominant accuracy contributor. Progressive pruning <em>without any distillation</em> already reaches 88.98% — beating the dense teacher by 1.95 points. Distillation adds a further 0.62. The schedule, not the supervision, is what drives the gain.</p>
+    </div>
+
+    <h2>Why it matters</h2>
+    <p>The 73.5% reduction in attention FLOPs translates directly to lower inference latency in edge deployment scenarios — mobile devices, embedded systems, real-time video pipelines — where quadratic attention is the primary throughput bottleneck. Because PTP-FAKD adds no parameters, it applies directly to pretrained ViT-B/16 checkpoints without architectural changes, and the framework partitions naturally to deeper models like ViT-L/16 (24 blocks, stages of 8) and ViT-H/14 (32 blocks, stages of ~11).</p>
+  </section>
+
+  <section id="tab-architecture" class="tab-pane" hidden>
+    <p>An input image becomes 197 tokens (196 patches + CLS). The student processes them through three stages of 4 blocks each, pruning between stages. The frozen teacher processes the full sequence in parallel and supervises the student at logit and feature level.</p>
+
+    <div class="arch-canvas">
+      <svg viewBox="0 0 660 380" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#888780"/>
+          </marker>
+          <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#185fa5"/>
+          </marker>
+        </defs>
+        <text x="330" y="20" text-anchor="middle" fill="var(--text-tertiary)" font-size="11" font-family="Inter">Frozen dense teacher · 197 tokens · all 12 blocks</text>
+        <rect x="60" y="30" width="540" height="36" rx="6" fill="#d3d1c7" opacity="0.5" stroke="#888780" stroke-width="0.5"/>
+        <text x="330" y="53" text-anchor="middle" fill="#444441" font-size="13" font-weight="500" font-family="Inter">Dense ViT-B/16 teacher</text>
+        <line x1="180" y1="66" x2="180" y2="180" stroke="#185fa5" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#arrow-blue)"/>
+        <text x="186" y="125" fill="#185fa5" font-size="10" font-family="Inter">f mid (KD)</text>
+        <line x1="380" y1="66" x2="380" y2="220" stroke="#185fa5" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#arrow-blue)"/>
+        <text x="386" y="145" fill="#185fa5" font-size="10" font-family="Inter">f late (KD)</text>
+        <line x1="540" y1="66" x2="540" y2="260" stroke="#185fa5" stroke-width="1.5" stroke-dasharray="3,3" marker-end="url(#arrow-blue)"/>
+        <text x="546" y="165" fill="#185fa5" font-size="10" font-family="Inter">logit KD</text>
+        <text x="22" y="270" fill="var(--text-tertiary)" font-size="11" font-family="Inter">Student</text>
+        <rect x="20" y="280" width="56" height="44" rx="4" fill="#d3d1c7" opacity="0.5" stroke="#888780" stroke-width="0.5"/>
+        <text x="48" y="300" text-anchor="middle" fill="#444441" font-size="11" font-family="Inter">Input</text>
+        <text x="48" y="313" text-anchor="middle" fill="#5f5e5a" font-size="10" font-family="Inter">224×224</text>
+        <line x1="76" y1="302" x2="92" y2="302" stroke="#888780" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="92" y="280" width="56" height="44" rx="4" fill="#d3d1c7" opacity="0.5" stroke="#888780" stroke-width="0.5"/>
+        <text x="120" y="300" text-anchor="middle" fill="#444441" font-size="11" font-family="Inter">Patch</text>
+        <text x="120" y="313" text-anchor="middle" fill="#5f5e5a" font-size="10" font-family="Inter">197 tok</text>
+        <line x1="148" y1="302" x2="160" y2="302" stroke="#888780" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="160" y="270" width="64" height="64" rx="4" fill="#cecbf6" opacity="0.55" stroke="#7f77dd" stroke-width="1"/>
+        <text x="192" y="290" text-anchor="middle" fill="#26215c" font-size="11" font-weight="500" font-family="Inter">Stage 1</text>
+        <text x="192" y="304" text-anchor="middle" fill="#3c3489" font-size="10" font-family="Inter">4 blocks</text>
+        <text x="192" y="318" text-anchor="middle" fill="#3c3489" font-size="10" font-family="Inter">197 tok</text>
+        <line x1="224" y1="302" x2="236" y2="302" stroke="#888780" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="236" y="280" width="56" height="44" rx="4" fill="#f5c4b3" opacity="0.6" stroke="#d85a30" stroke-width="1"/>
+        <text x="264" y="298" text-anchor="middle" fill="#4a1b0c" font-size="11" font-weight="500" font-family="Inter">Prune</text>
+        <text x="264" y="312" text-anchor="middle" fill="#712b13" font-size="10" font-family="Inter">κ₁=0.85</text>
+        <text x="264" y="345" text-anchor="middle" fill="var(--text-tertiary)" font-size="10" font-family="Inter">→167 tok</text>
+        <line x1="292" y1="302" x2="304" y2="302" stroke="#888780" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="304" y="270" width="64" height="64" rx="4" fill="#cecbf6" opacity="0.55" stroke="#7f77dd" stroke-width="1"/>
+        <text x="336" y="290" text-anchor="middle" fill="#26215c" font-size="11" font-weight="500" font-family="Inter">Stage 2</text>
+        <text x="336" y="304" text-anchor="middle" fill="#3c3489" font-size="10" font-family="Inter">4 blocks</text>
+        <text x="336" y="318" text-anchor="middle" fill="#3c3489" font-size="10" font-family="Inter">167 tok</text>
+        <line x1="368" y1="302" x2="380" y2="302" stroke="#888780" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="380" y="280" width="56" height="44" rx="4" fill="#f5c4b3" opacity="0.6" stroke="#d85a30" stroke-width="1"/>
+        <text x="408" y="298" text-anchor="middle" fill="#4a1b0c" font-size="11" font-weight="500" font-family="Inter">Prune</text>
+        <text x="408" y="312" text-anchor="middle" fill="#712b13" font-size="10" font-family="Inter">κ₂=0.50</text>
+        <text x="408" y="345" text-anchor="middle" fill="var(--text-tertiary)" font-size="10" font-family="Inter">→98 tok</text>
+        <line x1="436" y1="302" x2="448" y2="302" stroke="#888780" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="448" y="270" width="64" height="64" rx="4" fill="#cecbf6" opacity="0.55" stroke="#7f77dd" stroke-width="1"/>
+        <text x="480" y="290" text-anchor="middle" fill="#26215c" font-size="11" font-weight="500" font-family="Inter">Stage 3</text>
+        <text x="480" y="304" text-anchor="middle" fill="#3c3489" font-size="10" font-family="Inter">4 blocks</text>
+        <text x="480" y="318" text-anchor="middle" fill="#3c3489" font-size="10" font-family="Inter">98 tok</text>
+        <line x1="512" y1="302" x2="524" y2="302" stroke="#888780" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="524" y="280" width="56" height="44" rx="4" fill="#9fe1cb" opacity="0.55" stroke="#1d9e75" stroke-width="1"/>
+        <text x="552" y="298" text-anchor="middle" fill="#04342c" font-size="11" font-weight="500" font-family="Inter">MLP</text>
+        <text x="552" y="312" text-anchor="middle" fill="#085041" font-size="10" font-family="Inter">100 cls</text>
+      </svg>
+    </div>
+
+    <h2>Why this works</h2>
+    <p>Naive pruning scores tokens at the embedding layer, where representations carry texture statistics but no semantic content. A high-norm token there often corresponds to a high-frequency edge patch, not a class-relevant region. Pruning after 4 and 8 blocks of attention lets context propagate first — by then, high-norm tokens correspond to object-centric regions. The classification head ends up attending to semantically concentrated tokens, which has an implicit regularization effect that explains why the sparse student outperforms the dense teacher.</p>
+
+    <h2>Loss formulation</h2>
+    <div class="formula-box">L = (1 − α)·L<sub>CE</sub> + α·L<sub>KD</sub> + β·L<sub>feat</sub></div>
+    <p>Cross-entropy with label smoothing (ε = 0.1), KL-divergence distillation at temperature T = 4.0, and L₂-normalized MSE on CLS features. α anneals from 0.70 to 0.50 over training. β = 0.3 is fixed.</p>
+
+    <h2>Pruning ratios</h2>
+    <p>κ₁ = 0.85 (keeps 85% of tokens after stage 1, reducing 197 → 167) and κ₂ = 0.50 (keeps half after stage 2, reducing 167 → 98). The CLS token is never pruned. Selected via grid search on a held-out 10% validation split of CIFAR-100, kept independent of the test set.</p>
+  </section>
+
+  <section id="tab-results" class="tab-pane" hidden>
+    <h2>CIFAR-100 ablation</h2>
+    <div class="chart-wrapper"><canvas id="ablation-chart"></canvas></div>
+
+    <h2>2×2 ablation breakdown</h2>
+    <p>The four-corner experiment that isolates pruning timing from supervision objective.</p>
+    <div class="ablation-grid">
+      <div class="ablation-card">
+        <div class="ablation-label">Naive · CE only</div>
+        <div class="ablation-value">78.29%</div>
+        <div class="ablation-delta">−8.74 vs teacher</div>
+      </div>
+      <div class="ablation-card">
+        <div class="ablation-label">Naive · feature KD</div>
+        <div class="ablation-value">84.91%</div>
+        <div class="ablation-delta">−2.12 vs teacher</div>
+      </div>
+      <div class="ablation-card">
+        <div class="ablation-label">Progressive · CE only</div>
+        <div class="ablation-value success">88.98%</div>
+        <div class="ablation-delta success">+1.95 vs teacher</div>
+      </div>
+      <div class="ablation-card featured">
+        <div class="ablation-label">★ PTP-FAKD (ours)</div>
+        <div class="ablation-value success">89.60%</div>
+        <div class="ablation-delta success">+2.57 vs teacher</div>
+      </div>
+    </div>
+
+    <h2>Accuracy vs compute</h2>
+    <div class="chart-wrapper"><canvas id="tradeoff-chart"></canvas></div>
+
+    <h2>CIFAR-10 transfer</h2>
+    <p>Logit-only KD on a sparse ViT-B/16 student transfers cleanly to CIFAR-10, closing 30% of the teacher gap.</p>
+    <div class="grid-3">
+      <div class="metric-card">
+        <div class="metric-label">Dense teacher</div>
+        <div class="metric-value" style="font-size:20px;">96.89%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Naive sparse</div>
+        <div class="metric-value" style="font-size:20px;">91.97%</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Sparse + logit KD</div>
+        <div class="metric-value" style="font-size:20px;">93.45%</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-demo" class="tab-pane" hidden>
+    <div class="demo-disclaimer">
+      <span class="demo-disclaimer-icon">ⓘ</span>
+      <span>Token retention is illustrative — patterns mirror real PTP-FAKD inference behavior shown in Fig. 5 of the paper.</span>
+    </div>
+    <p>Pick a sample image, then drag the slider through the four pruning stages. Watch how PTP keeps semantically meaningful tokens while naive pruning scatters across edges and textures.</p>
+
+    <div class="sample-row">
+      <button class="sample-btn selected" data-sample="0">🍎 Apple</button>
+      <button class="sample-btn" data-sample="1">🐕 Dog</button>
+      <button class="sample-btn" data-sample="2">🦋 Butterfly</button>
+      <button class="sample-btn" data-sample="3">🚀 Rocket</button>
+      <button class="sample-btn" data-sample="4">🌻 Flower</button>
+      <button class="sample-btn" data-sample="5">🐈 Cat</button>
+    </div>
+
+    <div class="stage-row">
+      <label for="stage-slider">Pruning stage</label>
+      <input type="range" min="0" max="3" step="1" value="0" id="stage-slider"/>
+      <span class="stage-readout" id="stage-label">Input · 197</span>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <div class="grid-label">Naive pruning · scoring at input</div>
+        <div class="grid-svg-wrapper"><svg id="grid-naive" viewBox="0 0 168 168" xmlns="http://www.w3.org/2000/svg"></svg></div>
+      </div>
+      <div>
+        <div class="grid-label">Progressive pruning · post-stage scoring</div>
+        <div class="grid-svg-wrapper"><svg id="grid-progressive" viewBox="0 0 168 168" xmlns="http://www.w3.org/2000/svg"></svg></div>
+      </div>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-card-label">Tokens active</div>
+        <div class="stat-card-value" id="stat-tokens">197 / 197</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Density</div>
+        <div class="stat-card-value" id="stat-density">100%</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-label">Cumulative attn cost</div>
+        <div class="stat-card-value" id="stat-cost">1.00×</div>
+      </div>
+    </div>
+
+    <div class="pred-card">
+      <div class="pred-header">
+        <div class="pred-title">Predictions</div>
+        <span class="pred-stage-text" id="pred-stage">at current stage</span>
+      </div>
+      <div class="pred-grid">
+        <div>
+          <div class="pred-label" style="color:var(--text-tertiary);">Dense teacher</div>
+          <div class="pred-class" id="pred-teacher">apple</div>
+          <div class="conf-row">
+            <div class="conf-bar-bg"><div id="conf-teacher-bar" class="conf-bar-fill" style="background:#888780;width:92%;"></div></div>
+            <span class="conf-pct" id="conf-teacher" style="color:var(--text-secondary);">92%</span>
+          </div>
+        </div>
+        <div>
+          <div class="pred-label" style="color:var(--text-info);">PTP-FAKD student</div>
+          <div class="pred-class" id="pred-student">apple</div>
+          <div class="conf-row">
+            <div class="conf-bar-bg"><div id="conf-student-bar" class="conf-bar-fill" style="background:#185fa5;width:94%;"></div></div>
+            <span class="conf-pct" id="conf-student" style="color:var(--text-info);">94%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <p>PTP-FAKD · Submitted to IECCT 2026 · Paper ID 1523<br>
+    Jain (Deemed-to-be University), Bengaluru</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  // Tab switching
+  const tabs = document.querySelectorAll('.tab-btn');
+  const panes = document.querySelectorAll('.tab-pane');
+  tabs.forEach(t => t.addEventListener('click', () => {
+    tabs.forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    panes.forEach(p => p.hidden = true);
+    const target = document.getElementById('tab-' + t.dataset.tab);
+    if (target) target.hidden = false;
+    if (t.dataset.tab === 'results') drawCharts();
+  }));
+
+  // Charts (lazy init when results tab opens)
+  let chartsDrawn = false;
+  function drawCharts() {
+    if (chartsDrawn || typeof Chart === 'undefined') return;
+    chartsDrawn = true;
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const textColor = isDark ? '#b4b2a9' : '#5f5e5a';
+    const gridColor = isDark ? 'rgba(240,239,233,0.08)' : 'rgba(26,26,24,0.08)';
+
+    const ctxAbl = document.getElementById('ablation-chart');
+    if (ctxAbl) new Chart(ctxAbl, {
+      type: 'bar',
+      data: {
+        labels: ['Teacher', 'Naive CE', 'Naive +KD', 'Naive +Feat', 'PTP only', 'PTP+FAKD'],
+        datasets: [{
+          data: [87.03, 78.29, 77.28, 84.91, 88.98, 89.60],
+          backgroundColor: ['#888780', '#f0997b', '#f0997b', '#f0997b', '#7f77dd', '#185fa5'],
+          borderWidth: 0,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => c.parsed.y.toFixed(2) + '%' } }
+        },
+        scales: {
+          y: { beginAtZero: false, min: 70, max: 92, ticks: { color: textColor, font: { size: 11 } }, grid: { color: gridColor } },
+          x: { ticks: { color: textColor, font: { size: 10 } }, grid: { display: false } }
+        }
+      }
+    });
+
+    const ctxTrade = document.getElementById('tradeoff-chart');
+    if (ctxTrade) new Chart(ctxTrade, {
+      type: 'scatter',
+      data: {
+        datasets: [
+          { label: 'Teacher', data: [{x:1.000, y:87.03}], backgroundColor: '#888780', pointRadius: 9 },
+          { label: 'Naive sparse', data: [{x:0.250, y:78.29},{x:0.250, y:77.28},{x:0.250, y:84.91}], backgroundColor: '#f0997b', pointRadius: 7 },
+          { label: 'PTP only', data: [{x:0.265, y:88.98}], backgroundColor: '#7f77dd', pointRadius: 9 },
+          { label: 'PTP-FAKD (ours)', data: [{x:0.265, y:89.60}], backgroundColor: '#185fa5', pointRadius: 11, pointStyle: 'rectRot' }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { color: textColor, font: { size: 11 }, boxWidth: 10 } } },
+        scales: {
+          x: { title: { display: true, text: 'Relative attention FLOPs', color: textColor, font: { size: 12 } }, min: 0.15, max: 1.1, ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } },
+          y: { title: { display: true, text: 'Top-1 accuracy (%)', color: textColor, font: { size: 12 } }, min: 75, max: 92, ticks: { color: textColor, font: { size: 10 } }, grid: { color: gridColor } }
+        }
+      }
+    });
+  }
+
+  // Token retention demo
+  const GRID = 14;
+  const TILE = 12;
+  const samples = {
+    0: { name: 'apple',     bg: '#faeeda', fg: '#d85a30', focus: [{cx:7,cy:7,r:3.5}] },
+    1: { name: 'dog',       bg: '#f1efe8', fg: '#854f0b', focus: [{cx:6,cy:7,r:3.0},{cx:9,cy:8,r:2.5}] },
+    2: { name: 'butterfly', bg: '#eeedfe', fg: '#7f77dd', focus: [{cx:5,cy:6,r:2.2},{cx:9,cy:6,r:2.2},{cx:7,cy:7,r:1.5}] },
+    3: { name: 'rocket',    bg: '#e6f1fb', fg: '#185fa5', focus: [{cx:7,cy:7,r:3.2}] },
+    4: { name: 'flower',    bg: '#eaf3de', fg: '#639922', focus: [{cx:7,cy:7,r:3.5}] },
+    5: { name: 'cat',       bg: '#fbeaf0', fg: '#993556', focus: [{cx:6,cy:6,r:2.5},{cx:9,cy:8,r:2.5}] }
+  };
+  const classNames = { apple: 'apple', dog: 'beagle', butterfly: 'butterfly', rocket: 'rocket', flower: 'sunflower', cat: 'tabby cat' };
+  let currentSample = 0;
+  let currentStage = 0;
+
+  function buildBackground(svg, sample) {
+    let html = '';
+    for (let y = 0; y < GRID; y++) {
+      for (let x = 0; x < GRID; x++) {
+        html += `<rect x="${x*TILE}" y="${y*TILE}" width="${TILE}" height="${TILE}" fill="${sample.bg}" stroke="rgba(0,0,0,0.04)" stroke-width="0.4"/>`;
+      }
+    }
+    for (const f of sample.focus) {
+      html += `<circle cx="${f.cx*TILE}" cy="${f.cy*TILE}" r="${f.r*TILE}" fill="${sample.fg}" opacity="0.85"/>`;
+    }
+    svg.innerHTML = html;
+  }
+
+  function tokenScore(x, y, sample, mode) {
+    let semantic = 0;
+    for (const f of sample.focus) {
+      const dx = x - f.cx, dy = y - f.cy;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      semantic = Math.max(semantic, Math.exp(-d / Math.max(1.5, f.r)));
+    }
+    const seed = (x * 7 + y * 13 + currentSample * 31) % 17;
+    const noise = (seed / 17);
+    const edgeNoise = (Math.abs((x + y) % 3) / 3) * 0.6 + (noise * 0.4);
+    if (mode === 'naive') return edgeNoise * 0.85 + semantic * 0.15;
+    return semantic * 0.92 + noise * 0.08;
+  }
+
+  function pickRetained(sample, mode, keep) {
+    const tokens = [];
+    for (let y = 0; y < GRID; y++) {
+      for (let x = 0; x < GRID; x++) {
+        tokens.push({ x, y, score: tokenScore(x, y, sample, mode) });
+      }
+    }
+    tokens.sort((a, b) => b.score - a.score);
+    const set = new Set();
+    for (let i = 0; i < keep; i++) set.add(tokens[i].x + ',' + tokens[i].y);
+    return set;
+  }
+
+  function renderGrid(svg, sample, mode, density) {
+    const total = GRID * GRID;
+    const keep = Math.round(total * density);
+    const retained = pickRetained(sample, mode, keep);
+    let html = '';
+    for (let y = 0; y < GRID; y++) {
+      for (let x = 0; x < GRID; x++) {
+        const inside = retained.has(x + ',' + y);
+        let semantic = 0;
+        for (const f of sample.focus) {
+          const dx = x - f.cx, dy = y - f.cy;
+          const d = Math.sqrt(dx*dx + dy*dy);
+          semantic = Math.max(semantic, Math.exp(-d / Math.max(1.5, f.r)));
+        }
+        const baseColor = semantic > 0.4 ? sample.fg : sample.bg;
+        if (inside) {
+          html += `<rect x="${x*TILE}" y="${y*TILE}" width="${TILE}" height="${TILE}" fill="${baseColor}" opacity="${(0.7 + semantic*0.3).toFixed(2)}" stroke="rgba(0,0,0,0.06)" stroke-width="0.4"/>`;
+        } else {
+          html += `<rect x="${x*TILE}" y="${y*TILE}" width="${TILE}" height="${TILE}" fill="#d3d1c7" opacity="0.45" stroke="rgba(0,0,0,0.06)" stroke-width="0.4"/>`;
+          html += `<line x1="${x*TILE+2}" y1="${y*TILE+2}" x2="${(x+1)*TILE-2}" y2="${(y+1)*TILE-2}" stroke="#888780" stroke-width="0.5" opacity="0.5"/>`;
+        }
+      }
+    }
+    svg.innerHTML = html;
+  }
+
+  function update() {
+    const sample = samples[currentSample];
+    const naiveSvg = document.getElementById('grid-naive');
+    const progSvg = document.getElementById('grid-progressive');
+
+    const stageMap = [
+      { label: 'Input · 197',   density: 1.00, tokens: 197, cost: 0,     desc: 'before any pruning' },
+      { label: 'After stage 1', density: 0.85, tokens: 167, cost: 0.083, desc: 'after stage 1 pruning' },
+      { label: 'After stage 2', density: 0.50, tokens: 98,  cost: 0.142, desc: 'after stage 2 pruning' },
+      { label: 'Output · 98',   density: 0.50, tokens: 98,  cost: 0.265, desc: 'final output (cumulative)' }
+    ];
+    const cfg = stageMap[currentStage];
+
+    if (currentStage === 0) {
+      buildBackground(naiveSvg, sample);
+      buildBackground(progSvg, sample);
+    } else {
+      renderGrid(naiveSvg, sample, 'naive', cfg.density);
+      renderGrid(progSvg, sample, 'progressive', cfg.density);
+    }
+
+    document.getElementById('stage-label').textContent = cfg.label;
+    document.getElementById('stat-tokens').textContent = cfg.tokens + ' / 197';
+    document.getElementById('stat-density').textContent = Math.round(cfg.density * 100) + '%';
+    document.getElementById('stat-cost').textContent = currentStage === 0 ? '0.00×' : cfg.cost.toFixed(3) + '×';
+    document.getElementById('pred-stage').textContent = cfg.desc;
+
+    const className = classNames[sample.name];
+    document.getElementById('pred-teacher').textContent = className;
+    const teacherConf = currentStage === 0 ? 92 : Math.max(85, 92 - currentStage * 1);
+    document.getElementById('conf-teacher').textContent = teacherConf + '%';
+    document.getElementById('conf-teacher-bar').style.width = teacherConf + '%';
+
+    document.getElementById('pred-student').textContent = className;
+    const studentConfs = [94, 93, 95, 95];
+    document.getElementById('conf-student').textContent = studentConfs[currentStage] + '%';
+    document.getElementById('conf-student-bar').style.width = studentConfs[currentStage] + '%';
+  }
+
+  document.querySelectorAll('.sample-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      currentSample = parseInt(b.dataset.sample);
+      document.querySelectorAll('.sample-btn').forEach(x => x.classList.remove('selected'));
+      b.classList.add('selected');
+      update();
+    });
+  });
+
+  document.getElementById('stage-slider').addEventListener('input', (e) => {
+    currentStage = parseInt(e.target.value);
+    update();
+  });
+
+  update();
+})();
+</script>
+</body>
+</html>
