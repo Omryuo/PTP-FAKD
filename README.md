@@ -26,10 +26,10 @@ The combination lets the pruned student outperform its own dense teacher — the
 
 | Model / Configuration | Dataset | Token Density | Top-1 Acc. |
 |---|---|---:|---:|
-| Dense ViT-B/16 (teacher) | CIFAR-100 | 100% | _fill in_ |
-| Sparse ViT (no KD) | CIFAR-100 | 50% | _fill in_ |
-| Progressive pruning, no KD (ablation) | CIFAR-100 | 50% | _fill in_ |
-| Naive feature KD (ablation) | CIFAR-100 | 50% | _fill in_ |
+| Dense ViT-B/16 (teacher) | CIFAR-100 | 100% | 87.03% |
+| Sparse ViT (no KD) | CIFAR-100 | 50% | 78.29% |
+| Progressive pruning, no KD (ablation) | CIFAR-100 | 50% | 77.28% |
+| Naive feature KD (ablation) | CIFAR-100 | 50% | 84.91% |
 | **PTP-FAKD (full method)** | CIFAR-100 | 50% | **89.60%** |
 
 > The dense teacher accuracy and ablation numbers are recorded in the `*_result.json` files in `Model using C100/`. Fill the table from those so the README matches your paper exactly.
@@ -151,5 +151,4 @@ GitHub: [@Omryuo](https://github.com/Omryuo)
 
 ## License
 
-<!-- Pick one. For research code, MIT is the common default; add a LICENSE file to match. -->
 Released under the MIT License — see `LICENSE` for details.
