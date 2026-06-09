@@ -144,7 +144,7 @@ If you use this work, please cite the published paper:
 
 ## Author
 
-**Om** — Cybersecurity & ML researcher
+**Omswaroop T M** — Cybersecurity & ML researcher
 GitHub: [@Omryuo](https://github.com/Omryuo)
 
 ---
