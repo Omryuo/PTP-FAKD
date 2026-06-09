@@ -24,15 +24,22 @@ The combination lets the pruned student outperform its own dense teacher — the
 
 ## Key Results
 
-| Model / Configuration | Dataset | Token Density | Top-1 Acc. |
-|---|---|---:|---:|
-| Dense ViT-B/16 (teacher) | CIFAR-100 | 100% | 87.03% |
-| Sparse ViT (no KD) | CIFAR-100 | 50% | 78.29% |
-| Progressive pruning, no KD (ablation) | CIFAR-100 | 50% | 77.28% |
-| Naive feature KD (ablation) | CIFAR-100 | 50% | 84.91% |
-| **PTP-FAKD (full method)** | CIFAR-100 | 50% | **89.60%** |
-
-> The dense teacher accuracy and ablation numbers are recorded in the `*_result.json` files in `Model using C100/`. Fill the table from those so the README matches your paper exactly.
+Full ablation on CIFAR-100 with ViT-B/16 (Table I from the paper):
+ 
+| Model | Tokens | Attn FLOPs | Top-1 Acc. | Δ Teacher | KD Type |
+|---|---:|---:|---:|---:|---|
+| Dense ViT-B/16 (Teacher) | 100% | 1.000× | 87.03% | — | None |
+| Naive Sparse, CE only | 50% | 0.250× | 78.29% | −8.74% | None |
+| Naive Sparse + Logit KD | 50% | 0.250× | 77.28% | −9.75% | Logit |
+| Naive Sparse + Feature KD | 50% | 0.250× | 84.91% | −2.12% | Feature |
+| **Prog. Sparse, CE only (PTP)** | 50% | 0.265× | 88.98% | +1.95% | None |
+| **★ Prog. Sparse + FAKD (Ours)** | 50% | 0.265× | **89.60%** | **+2.57%** | Logit + Feature |
+ 
+**What the ablation shows:**
+- **Naive pruning hurts**, and logit-only KD makes it *worse* (77.28%) — distillation alone can't fix a bad token-selection strategy.
+- **Feature KD** is the effective distillation signal (84.91% vs 77.28% for logit KD).
+- **Progressive pruning alone already beats the dense teacher** (88.98%, +1.95pp) at only 0.265× attention FLOPs — the scheduling is the dominant lever.
+- **The full method (PTP + Feature-Aware KD)** stacks both gains for **89.60% (+2.57pp over the teacher)** while pruning half the tokens.
 
 ---
 
